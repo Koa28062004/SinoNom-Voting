@@ -50,7 +50,8 @@ def run_ggvision(config):
   
   with open(path_label, 'w',encoding='utf-8') as f:
     for file in fileList:
-        text = detect_text(path+file)
+        path_file = os.path.join(path, file)
+        text = detect_text(path_file)
         if text is None:
             continue
         text = text.replace('\n','')

@@ -1,10 +1,10 @@
 import yaml
 import os 
-import run_gemini
-import run_openai
-import run_clc
-import run_ggvision
-import run_kandi
+from genGeminiLabel import run_gemini
+from genGPTLabel import run_openai
+from genCLCLabel import run_clc
+from genGGVisionLabel import run_ggvision
+from genKandiLabel import run_kandi
 
 CONFIG_FILE = "apiConfig.yaml"
 

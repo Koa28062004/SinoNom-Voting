@@ -1,0 +1,9 @@
+PyYAML
+Flask
+google-generativeai
+pandas
+openai
+python-dotenv
+Pillow
+google-cloud-vision
+matplotlib
