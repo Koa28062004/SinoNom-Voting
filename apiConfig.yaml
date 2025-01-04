@@ -1,0 +1,24 @@
+api_tool:
+  name: "openai"
+
+apis:
+  openai:
+    organization: "your_organization_id"
+    api_key: "your_api_key_gpt"
+    model: "gpt-4o"
+    messages:
+      prompt_text: "What is written (from left to right) in this image (only result, no explanation)?"
+  clc:
+    api_key: "your_clc_api_key"
+  ggVision:
+    google_credentials: "your_credentials"
+  kandi:
+    api_token: "your_kandi_api_token"
+    email: "meow@gmail.com"
+  gemini:
+    api_key: "your_gemini_api_key"
+
+paths:
+  folder_path: "part2/go_HNKK_cropped_3"
+  output_file: "label/Part 2/part2_3.xlsx"
+  path_label: ""
