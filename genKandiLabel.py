@@ -53,6 +53,8 @@ def draw_bounding_boxes(image_path, response_data):
     image.save("output_with_bounding_boxes.jpg")
 
 def send_ocr_request(
+    api_token, 
+    email,
     image_path,
     char_ocr=False,
     det_mode="auto",
@@ -66,8 +68,8 @@ def send_ocr_request(
 
     # Define the payload
     payload = {
-        "token": 'TokenAPI', #api_token
-        "email": 'email',  #email
+        "token": api_token,
+        "email": email,
         "image": image_base64,
         "char_ocr": char_ocr,
         "det_mode": det_mode,
@@ -90,7 +92,7 @@ def send_ocr_request(
     else:
         response.raise_for_status()  # Raise an error if the request failed
 
-def process(image_folder, output_folder):
+def process(image_folder, output_folder, api_token, email):
   with open(output_folder, 'a', encoding='utf-8') as file:
       for image_file in os.listdir(image_folder):
           if image_file.lower().endswith(('.png', '.jpg', '.jpeg')):  # Check for image files
@@ -98,6 +100,8 @@ def process(image_folder, output_folder):
               print("Processing image:", image_path)
               #Send OCR request and get the response
               response = send_ocr_request(
+                  api_token, 
+                  email,
                   image_path,
                   char_ocr=True,
                   det_mode="sp",
@@ -122,4 +126,4 @@ def run_kandi(config):
   image_folder = config["paths"]["folder_path"]
   output_folder = config["paths"]["output_file"]
 
-  process(image_folder, output_folder)
+  process(image_folder, output_folder, api_token, email)
