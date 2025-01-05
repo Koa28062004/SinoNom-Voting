@@ -45,10 +45,10 @@ def detect_text(path):
 def run_ggvision(config):
   os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = config["apis"]["ggVision"]["google_credentials"]
   path = config["paths"]["folder_path"]
-  path_label = config["paths"]["path_label"]
+  output_file = config["paths"]["output_file"]
   fileList = os.listdir(path)
   
-  with open(path_label, 'w',encoding='utf-8') as f:
+  with open(output_file, 'w',encoding='utf-8') as f:
     for file in fileList:
         path_file = os.path.join(path, file)
         text = detect_text(path_file)

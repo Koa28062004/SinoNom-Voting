@@ -21,4 +21,3 @@ apis:
 paths:
   folder_path: "part2/go_HNKK_cropped_3"
   output_file: "label/Part 2/part2_3.xlsx"
-  path_label: ""
