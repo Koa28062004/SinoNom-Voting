@@ -5,6 +5,7 @@ from collections import Counter
 from openai import OpenAI
 from dotenv import load_dotenv
 from utils import transliteration, validateByGoogle, saving_to_json
+import yaml
 
 load_dotenv()
 
@@ -251,5 +252,15 @@ def run_voting(config, withoutGemini=False):
 
   input_file = config["paths"]["output_file"] # File label by 5 APIs
   output_file = config["paths"]["output_file_voting"] # File save voting result
-  folder_json = config["paths"]["foler_json_path"]
+  folder_json = config["paths"]["folder_json_path"]
   process(client, model, api_search, cse_id, input_file, output_file, folder_json, withoutGemini)
+
+CONFIG_FILE = "apiConfig.yaml"
+
+def load_config():
+    with open(CONFIG_FILE, "r") as file:
+        return yaml.safe_load(file)
+
+if __name__ == "__main__":
+    config = load_config()
+    run_voting(config)
