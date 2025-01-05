@@ -1,6 +1,8 @@
 import os
 import time
 import google.generativeai as genai
+import pandas as pd
+from utils import save_api_results_to_excel, clean_text
 
 def process_image(filepath):
     """
@@ -27,21 +29,21 @@ def process_dataset(folder_path, output_file, api_key):
 
     results = {}
     request_count = 0  # Initialize request counter
+    
+    for filename in os.listdir(folder_path):
+        filepath = os.path.join(folder_path, filename)
+        if os.path.isfile(filepath) and filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
+            print(f"Processing {filename}...")
+            result = process_image(filepath)
+            results[filename] = result
+            # Append the result to the existing Excel file
+            save_api_results_to_excel(filename, "Gemini API", clean_text(result), output_file)
 
-    with open(output_file, 'w') as f:
-        for filename in os.listdir(folder_path):
-            filepath = os.path.join(folder_path, filename)
-            if os.path.isfile(filepath) and filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
-                print(f"Processing {filename}...")
-                result = process_image(filepath)
-                results[filename] = result
-                f.write(f"{filename}\t{result}\n")  # Write results in the desired format
-
-                request_count += 1
-                # Wait for 30 seconds after every 5 requests
-                if request_count % 5 == 0:
-                    print("Pausing for 30 seconds...")
-                    time.sleep(30)
+            request_count += 1
+            # Wait for 30 seconds after every 5 requests
+            if request_count % 5 == 0:
+                print("Pausing for 30 seconds...")
+                time.sleep(30)
 
     print("\nProcessing complete. Results written to res.txt")
 

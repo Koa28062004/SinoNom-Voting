@@ -4,27 +4,10 @@ import difflib
 from collections import Counter
 from openai import OpenAI
 from dotenv import load_dotenv
+from utils import transliteration, validateByGoogle, saving_to_json
 
 load_dotenv()
 
-
-client = OpenAI(
-    organization=ORGANIZATION,
-    api_key=API_KEY_GPT
-)
-
-def is_nom_or_chinese(char):
-    """Check if a character is in the Nom or Chinese Unicode range."""
-    codepoint = ord(char)
-    return (
-        (0x4E00 <= codepoint <= 0x9FFF) or  # CJK Unified Ideographs
-        (0x3400 <= codepoint <= 0x4DBF) or  # CJK Unified Ideographs Extension A
-        (0x20000 <= codepoint <= 0x2A6DF) or  # CJK Unified Ideographs Extension B
-        (0x2A700 <= codepoint <= 0x2B81F) or  # CJK Unified Ideographs Extensions C-G
-        (0xF900 <= codepoint <= 0xFAFF) or  # CJK Compatibility Ideographs
-        (0x2FF0 <= codepoint <= 0x2FFF) or  # Ideographic Description Characters
-        (0x31C0 <= codepoint <= 0x31EF)  # CJK Strokes
-    )
 def save_row_to_excel(file_path, row, headers):
     try:
         with pd.ExcelWriter(file_path, mode='a', if_sheet_exists='overlay', engine='openpyxl') as writer:
@@ -48,7 +31,7 @@ def find_best_sequence(max_sequences, sequences):
     return best_sequence
 
 # Function to pad strings using a base sequence
-def chatGPTsemantic(string, listChar):
+def chatGPTsemantic(client, model, string, listChar):
     new_string = list(string)
     for index, char in enumerate(string):
         if char == '?':
@@ -60,7 +43,7 @@ def chatGPTsemantic(string, listChar):
                 new_string[index] = '&'
                 continue
             response = client.chat.completions.create(
-            model="gpt-4-turbo",
+            model=model,
             messages=[
                 {
                     "role": "user",
@@ -141,7 +124,7 @@ def minimum_edit_distance_with_actions(base, target):
     return new_string[::-1]
 
 # Voting algorithm
-def voting_algorithm(row):
+def voting_algorithm(client, model, row):
     # Extract non-empty entries
     
     entries = [str(value) if pd.notna(value) and str(value).strip() else "" for value in row]
@@ -190,45 +173,83 @@ def voting_algorithm(row):
     if (voted_string.count('?') == len(voted_string)):
         return voted_string, voted_string.replace('?', '&')
     
-    LLM_voting = chatGPTsemantic(voted_string, chars_list)
+    LLM_voting = chatGPTsemantic(client, model, voted_string, chars_list)
     return voted_string, LLM_voting
-def process_data_immediate_save(data, output_file, listCol, withoutGemini):
-    headers = list(data.columns) + ['Voted_Result', 'Voting_Fill']
-    # Create the output file with headers
+def process_data_immediate_save(client, model, api_search, cse_id,  data, output_file, folder_json, listCol, withoutGemini):
+    headers = list(data.columns) + (['Voted_Result', 'Voting_Fill', 'Voting_Fill Phien am', 'Voting_Fill_GG', 'Voting_Fill_GG Phien am'] if (not withoutGemini) else ['Voted_Result_Without_Gemini', 'Voting_Fill_Without_Gemini', 'Voting_Fill_Without_Gemini Phien am', 'Voting_Fill_Without_Gemini_GG', 'Voting_Fill_Without_Gemini_GG Phien am'])
     if withoutGemini:
         listCol.remove('Gemini API')
-        data[['Voted_Result_Without_Gemini', 'Voting_Fill_Without_Gemini']] = ''
+        data[['Voted_Result_Without_Gemini', 'Voting_Fill_Without_Gemini', 'Voting_Fill_Without_Gemini Phien am', 'Voting_Fill_Without_Gemini_GG', 'Voting_Fill_Without_Gemini_GG Phien am']] = ''
     else:
-        data[['Voted_Result', 'Voting_Fill']] = ''
+        data[['Voted_Result', 'Voting_Fill', 'Voting_Fill Phien am', 'Voting_Fill_GG', 'Voting_Fill_GG Phien am']] = ''
     data.iloc[:0].to_excel(output_file, index=False)
 
     for idx, row in data.iloc[0:].iterrows():
         try:
-            print('Processing row:', row[0])
+            print('Voting row:', row.iloc[0])
             row_values = [row[col] for col in listCol if col in row]
-            voting, LLM_voting = voting_algorithm(row_values)
-            row['Voted_Result'] = voting
-            row['Voting_Fill'] = LLM_voting
+            voting, LLM_voting = voting_algorithm(client, model, row_values)
+            if withoutGemini:
+                row['Voted_Result_Without_Gemini'] = voting
+                row['Voting_Fill_Without_Gemini'] = LLM_voting
+                row['Voting_Fill_Without_Gemini Phien am'] = transliteration(LLM_voting)
+                results, isCorrect = validateByGoogle(api_search, cse_id, row['Voting_Fill_Without_Gemini Phien am'], row.iloc[0])
+                row['Voting_Fill_Without_Gemini_GG Phien am'] = 'Correct' if isCorrect else 'Unknown'
+                if (isCorrect == True):
+                    saving_to_json(results, folder_json + '/voting_checkGG_Voting_Fill_Without_Gemini_Trans.json')
+                else:
+                    resultsOCR, isCorrectOCR = validateByGoogle(api_search, cse_id, row['Voting_Fill_Without_Gemini'], row.iloc[0])
+                    row['Voting_Fill_Without_Gemini_GG'] = 'Correct' if isCorrectOCR else 'Unknown'
+                    if (isCorrectOCR == True):
+                        saving_to_json(resultsOCR, folder_json + '/voting_checkGG_Voting_Fill_Without_Gemini.json')
+    
+            else:
+                row['Voted_Result'] = voting
+                row['Voting_Fill'] = LLM_voting
+                row['Voting_Fill Phien am'] = transliteration(voting)
+                
+                results, isCorrect = validateByGoogle(api_search, cse_id, row['Voting_Fill Phien am'], row.iloc[0])
+                row['Voting_Fill_GG Phien am'] = 'Correct' if isCorrect else 'Unknown'
+                if (isCorrect == True):
+                    saving_to_json(results, folder_json + '/voting_checkGG_Voting_Fill_Trans.json')
+                else:
+                    resultsOCR, isCorrectOCR = validateByGoogle(api_search, cse_id, row['Voting_Fill'], row.iloc[0])
+                    row['Voting_Fill_GG'] = 'Correct' if isCorrectOCR else 'Unknown'
+                    if (isCorrectOCR == True):
+                        saving_to_json(resultsOCR, folder_json + '/voting_checkGG_Voting_Fill.json')
+            
             save_row_to_excel(output_file, row, headers)
         except Exception as e:
             print(f"Error processing row {idx}: {e}")
             print("Halting process.")
             return False
 
-    print(f"All rows processed and saved to {output_file}")
     return True
 
-# Main
-# Load the dataset from the Excel file
-file_path = 'label/Part 2/part2.xlsx' # Replace with the path to your Excel file
-listAPI = ['GPT API', 'Kandi API', 'Vision API', 'CLC API', 'Gemini API'] # List of columns to consider for voting
-withoutGemini = True # Set to True if the Gemini API column is not present in the dataset
-output_file = 'label/Part 2/part2_voting_result.xlsx' # Replace with the desired path for the output Excel file
-try:
-    data = pd.read_excel(file_path)
-    if not process_data_immediate_save(data, output_file, listAPI, withoutGemini):
-        print("Process terminated due to an error.")
-    else:
-        print(f"Voting results saved to: {output_file}")
-except Exception as e:
-    print(f"Critical error loading file or processing data: {e}")
+def process(client, model, api_search, cse_id, input_file, output_file, folder_json, withoutGemini):
+    listAPI = ['GPT API', 'Kandi API', 'Vision API', 'CLC API', 'Gemini API'] # List of columns to consider for voting
+    try:
+        data = pd.read_excel(input_file)
+        if not process_data_immediate_save(client, model, api_search, cse_id, data, output_file, folder_json, listAPI, withoutGemini):
+            print("Process terminated due to an error.")
+        else:
+            print(f"Voting results saved to: {output_file}")
+    except Exception as e:
+        print(f"Critical error loading file or processing data: {e}")
+
+def run_voting(config, withoutGemini=False):
+  ORGANIZATION = config["apis"]["openai"]["organization"]
+  API_KEY_GPT = config["apis"]["openai"]["api_key"]
+  api_search = config["apis"]["ggSearch"]["api_key"]
+  cse_id = config["apis"]["ggSearch"]["cse_id"]
+  model = config["apis"]["openai"]["model_Voting"]
+
+  client = OpenAI(
+    organization=ORGANIZATION,
+    api_key=API_KEY_GPT
+  )
+
+  input_file = config["paths"]["output_file"] # File label by 5 APIs
+  output_file = config["paths"]["output_file_voting"] # File save voting result
+  folder_json = config["paths"]["foler_json_path"]
+  process(client, model, api_search, cse_id, input_file, output_file, folder_json, withoutGemini)
